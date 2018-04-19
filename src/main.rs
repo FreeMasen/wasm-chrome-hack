@@ -37,9 +37,39 @@ fn main() {
 #[derive(Debug, Default)]
 struct Module {
     name: String,
-    path: String,
-    exports: Vec<String>,
+    exports: Vec<ExportType>,
     body: String
+}
+
+#[derive(Debug)]
+enum ExportType {
+    Function(String),
+    Enumeration(String),
+    Class(String)
+}
+
+impl ExportType {
+    pub fn from(line: &str) -> Option<ExportType> {
+        let mut words = line.split_whitespace();
+        let _export = words.next();
+        let export_type = words.next().expect("Unable to get export type from export line");
+        let name = words.next().expect("Unable to get export name from export line");
+        ExportType::new(export_type, name)
+    }
+
+    pub fn new(export_type: &str, name: &str) -> Option<ExportType> {
+        let name = name.trim();
+        match export_type {
+            "function" => {
+                let paren_idx = name.find("(").unwrap_or(name.len() - 1);
+
+                Some(ExportType::Function(name[0..paren_idx].to_string()))
+            },
+            "const" => Some(ExportType::Enumeration(name.to_string())),
+            "class" => Some(ExportType::Class(name.to_string())),
+            _ => None
+        }
+    }
 }
 
 impl Module {
@@ -53,15 +83,15 @@ impl Module {
             if l.starts_with("import * as") {
                 let import_line = l.replace("import * as ", "");
                 let mut parts = import_line.split_whitespace();
-                module.name = parts.next().expect("Unable to get module name from js file").to_string();
+                let _wasm = parts.next();
                 let _from = parts.next();
-                module.path = parts.next().expect("Unable to get module path from js file").replace(";", "");
+                let path = parts.next().expect("Unable to get module path from js file");
+                let end_idx = path.find("_bg';").unwrap_or(path.len() - 1);
+                module.name = path[3..end_idx].to_string();
                 false
             } else {
                 if l.starts_with("export") {
-                    let trimmed = l.replace("export function ", "");
-                    let open_idx = trimmed.find('(').unwrap_or(trimmed.len() - 1);
-                    module.exports.push(trimmed[0..open_idx].to_string());
+                    module.exports.push(ExportType::from(l).expect("export line failed to parse"));
                 }
                 true
             }
@@ -71,29 +101,34 @@ impl Module {
     }
 
     pub fn to_string(self) -> String {
-        let mut placeholder = "    {\n".to_string();
-        let mut exports = "    {\n".to_string();
+        let mut placeholder = "{\n".to_string();
+        let mut exports = "{\n".to_string();
         for export in self.exports {
-            placeholder += &format!("        {}: function() {{ }},\n", &export);
-            exports += &format!("        {0}: {0},\n        ", &export);
+            let (name, action) = match export {
+                ExportType::Function(name) => (name, "function() { }"),
+                ExportType::Enumeration(name) => (name, "{}"),
+                ExportType::Class(name) => (name, "{}"),
+            };
+            placeholder += &format!("        {}: {},\n", &name, &action);
+            exports += &format!("        {0}: {0},\n        ", &name);
         }
         placeholder += "    },";
         exports += "    }";
 
-        format!("let {0};
-let import_obj = {{
-    './wasm': {1},
-    __wbindgen_placeholder__: {2}
-}};
-export const booted = fetch({3})
-    .then(res => arrayBuffer())
+        format!("let wasm;
+export const booted = fetch('./{0}_bg.wasm')
+    .then(res => res.arrayBuffer())
     .then(bytes => {{
         return WebAssembly.instantiate(bytes, import_obj)
             .then(obj => {{
-            {0} = obj.instance.exports;
+            wasm = obj.instance.exports;
         }});
     }});
-{4}", self.name, exports, placeholder, self.path, self.body)
+{3}
+let import_obj = {{
+    './{0}': {1},
+    __wbindgen_placeholder__: {2}
+}};", self.name, exports, placeholder, self.body)
     }
 }
 
