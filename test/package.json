@@ -1,0 +1,14 @@
+{
+  "name": "wasm-chrome-hack-test",
+  "version": "0.1.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "serve": "webpack-dev-server"
+  },
+  "devDependencies": {
+    "webpack": "^4.0.1",
+    "webpack-cli": "^2.0.10",
+    "webpack-dev-server": "^3.1.0"
+  }
+}
