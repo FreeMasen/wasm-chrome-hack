@@ -21,12 +21,11 @@ let js = import('./wasm_chrome_hack.ch.js');
 
 js.then(mod => {
     mod.booted.then(() => {
-        let p = mod.Person.new("Bilbo", 111);
-        mod.say_hi(p);
+        //do stuff with your wasm module
     });
 });
 ```
-If you have followed along with the hello world example in the wasm-bindgen repo, you will notice there is an additiona promise we need account for. First, we need to use the `import()` function to get the js file, once that is successfully loaded, we then need to wait for the wasm file to download, this is captured in the `.booted` property, once this has completed all of the module's properties will be available.
+If you have followed along with the hello world example in the wasm-bindgen repo, you will notice there is an additiona promise we need account for. First, we need to use the `import()` function to get the js file, once that is successfully loaded, we then need to wait for the wasm file to download, this is captured in the `.booted` property, once this has completed all of the module's properties will be available. Now you can run your `webpack-dev-server` and you should see everything working, even on chrome.
 
 ## Downloading
 Current this isn't hosted anywhere outside of this repo. From what I understand the webpack implementation of the wasm import is considered a bug and should be fixed soonish so it seems pointless to take another name from cargo.
