@@ -38,3 +38,14 @@ $ cd ./wasm-chrome-hack
 $ cargo build
 $ ./target/debug/wbch ./infile.js
 ```
+## Why?
+Currently wasm-bindgen offers the command `wasm2es6js` to convert your `.wasm` file into a `.js` file that includes the module as a base64 encoded string. This is a great work around, however if you build the project in the `test` folder and use this method you add about 100kb to the total size (in debug mode). To see for yourself you could do the following.
+
+```sh
+$ cd test
+$ cargo +nightly build --target wasm32-unknown-unknown
+$ wasm-bindgen ./target/wasm32-unknown-unknown/debug/wasm_chrome_hack.wasm
+$ wasm2es6js --base64 -o ./wasm_chrome_hack_es.js ./wasm_chrome_hack_bg.wasm
+```
+
+For my system the .wasm file is ~275kb while the es6js file is ~370kb
