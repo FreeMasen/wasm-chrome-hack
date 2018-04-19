@@ -1,2 +1,4 @@
-target/
-**/*.js
+**/target/
+**/node_modules/
+test/*.js
+test/*.wasm
