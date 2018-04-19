@@ -1,5 +1,5 @@
 [package]
-name = "wasm-chrome-hack"
+name = "wbch"
 version = "0.1.0"
 authors = ["robert masen <r@robertmasen.pizza>"]
 
