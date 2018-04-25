@@ -18,9 +18,14 @@ fn main() {
             .short("o")
             .index(2)
             .help("The output file to be written to, will be ./[filename].ch.js if not provided"))
+        .arg(Arg::with_name("path")
+            .required(false)
+            .short("p")
+            .index(3)
+            .help("The path to place in the first argument of the fetch command"))
         .get_matches();
     if let Some(infile) = matches.value_of("infile") {
-        let module = Module::from(infile);
+        let mut module = Module::from(infile);
         let outfile = match matches.value_of("outfile") {
             Some(o) => PathBuf::from(o),
             None => {
@@ -29,7 +34,10 @@ fn main() {
                 PathBuf::from(inpath.file_name().expect("inpath cannot be a directory"))
             }
         };
-        write_file(outfile, module.to_string());
+        if let Some(path) = matches.value_of("path") {
+            module.add_path(path)
+        };
+        write_file(&outfile, module.to_string());
     } else {
         println!("infile argument is required");
     }
@@ -38,6 +46,7 @@ fn main() {
 struct Module {
     name: String,
     exports: Vec<ExportType>,
+    path: String,
     body: String
 }
 
@@ -89,15 +98,20 @@ impl Module {
                 let end_idx = path.find("_bg';").unwrap_or(path.len() - 1);
                 module.name = path[3..end_idx].to_string();
                 false
+            } else if l.starts_with("export") {
+                module.exports.push(ExportType::from(l).expect("export line failed to parse"));
+                true
+            } else if l.starts_with("/* tslint:disable */") {
+                false
             } else {
-                if l.starts_with("export") {
-                    module.exports.push(ExportType::from(l).expect("export line failed to parse"));
-                }
                 true
             }
         }).collect();
         module.body = lines.join("\n");
         module
+    }
+    pub fn add_path(&mut self, path: &str) {
+        self.path = path.to_string()
     }
 
     pub fn to_string(self) -> String {
@@ -114,9 +128,14 @@ impl Module {
         }
         placeholder += "    },";
         exports += "    }";
-
-        format!("let wasm;
-export const booted = fetch('./{0}_bg.wasm')
+        let path = if self.path != "" {
+            self.path
+        } else {
+            format!("/{}", self.name)
+        };
+        format!("/* tslint:disable */
+let wasm;
+export const booted = fetch('{path}')
     .then(res => res.arrayBuffer())
     .then(bytes => {{
         return WebAssembly.instantiate(bytes, import_obj)
@@ -124,11 +143,11 @@ export const booted = fetch('./{0}_bg.wasm')
             wasm = obj.instance.exports;
         }});
     }});
-{3}
+{body}
 let import_obj = {{
-    './{0}': {1},
-    __wbindgen_placeholder__: {2}
-}};", self.name, exports, placeholder, self.body)
+    './{name}': {exports},
+    __wbindgen_placeholder__: {placeholder}
+}};", path = path, name = self.name, exports = exports, placeholder = placeholder, body = self.body)
     }
 }
 
